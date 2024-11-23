@@ -40,7 +40,7 @@ A real-time chat application built with Django and Django Channels, featuring We
 
 1. Clone the repository
 ```bash
-git clone <https://github.com/Is-haka/django_chat.git>
+git clone https://github.com/Is-haka/django_chat.git
 cd django_chat
 ```
 
