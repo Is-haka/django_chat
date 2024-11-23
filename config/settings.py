@@ -25,12 +25,13 @@ SECRET_KEY = 'django-insecure-+@84a5%vrnrzd_)nd6op0duvf8g(^&e=xm$)x%yhx!xmay!d_&
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
 
-ALLOWED_HOSTS = []
-
+ALLOWED_HOSTS = ['*']
 
 # Application definition
 
 INSTALLED_APPS = [
+    'channels',  
+    'daphne',  
     'django.contrib.admin',
     'django.contrib.auth',
     'django.contrib.contenttypes',
@@ -68,8 +69,7 @@ TEMPLATES = [
     },
 ]
 
-WSGI_APPLICATION = 'config.wsgi.application'
-
+ASGI_APPLICATION = 'config.asgi.application'
 
 # Database
 # https://docs.djangoproject.com/en/5.1/ref/settings/#databases
@@ -121,6 +121,16 @@ STATIC_URL = 'static/'
 STATICFILES_DIRS = [
     BASE_DIR / "static",
 ]
+
+# Channels Configuration
+CHANNEL_LAYERS = {
+    "default": {
+        "BACKEND": "channels.layers.InMemoryChannelLayer"
+    }
+}
+
+# CSRF settings
+CSRF_TRUSTED_ORIGINS = ['http://127.0.0.1:8001']
 
 # Default primary key field type
 # https://docs.djangoproject.com/en/5.1/ref/settings/#default-auto-field

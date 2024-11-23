@@ -226,15 +226,81 @@
         const messageForm = document.getElementById('message-form');
         const messageInput = document.getElementById('message-input');
         const messagesContainer = document.getElementById('messages');
-        
+        let chatSocket = null;
+        let reconnectAttempts = 0;
+        const maxReconnectAttempts = 5;
+
+        function connectWebSocket() {
+            const roomName = '{{ room_name }}';
+            const username = '{{ username }}';
+            const wsScheme = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+            // Format the room name to match the URL pattern
+            const formattedRoomName = roomName.replace(/\s+/g, '-').toLowerCase();
+            const wsPath = `${wsScheme}//${window.location.host}/ws/chat/${formattedRoomName}/`;
+            
+            console.log('Connecting to WebSocket at:', wsPath);
+            
+            chatSocket = new WebSocket(wsPath);
+
+            chatSocket.onopen = function(e) {
+                console.log('WebSocket connection established');
+                reconnectAttempts = 0;
+                showToast('Connected to chat room', 'success');
+            };
+
+            chatSocket.onmessage = function(e) {
+                const data = JSON.parse(e.data);
+                addMessage(data.message, data.username === username, data.username);
+            };
+
+            chatSocket.onclose = function(e) {
+                console.log('WebSocket connection closed:', e);
+                if (reconnectAttempts < maxReconnectAttempts) {
+                    showToast('Connection lost. Attempting to reconnect...', 'warning');
+                    reconnectAttempts++;
+                    setTimeout(connectWebSocket, 2000);
+                } else {
+                    showToast('Connection lost. Please refresh the page.', 'danger');
+                }
+            };
+
+            chatSocket.onerror = function(e) {
+                console.error('WebSocket error:', e);
+                showToast('Error connecting to chat room', 'danger');
+            };
+        }
+
+        // Function to show toast messages
+        function showToast(message, type) {
+            const toast = document.createElement('div');
+            toast.className = `toast toast-${type}`;
+            toast.textContent = message;
+            document.body.appendChild(toast);
+            
+            setTimeout(() => {
+                toast.remove();
+            }, 5000);
+        }
+
         // Function to add a new message to the chat
-        function addMessage(content, isSent = true) {
+        function addMessage(content, isSent = true, senderName = null) {
             const messageDiv = document.createElement('div');
             messageDiv.className = `message ${isSent ? 'sent' : 'received'}`;
             
             const messageContent = document.createElement('div');
             messageContent.className = 'message-content';
-            messageContent.textContent = content;
+            
+            if (!isSent && senderName) {
+                const senderSpan = document.createElement('div');
+                senderSpan.className = 'message-sender';
+                senderSpan.textContent = senderName;
+                messageContent.appendChild(senderSpan);
+            }
+            
+            const textSpan = document.createElement('div');
+            textSpan.className = 'message-text';
+            textSpan.textContent = content;
+            messageContent.appendChild(textSpan);
             
             messageDiv.appendChild(messageContent);
             messagesContainer.appendChild(messageDiv);
@@ -248,14 +314,16 @@
             e.preventDefault();
             const message = messageInput.value.trim();
             
-            if (message) {
-                // Add message to chat
-                addMessage(message);
+            if (message && chatSocket && chatSocket.readyState === WebSocket.OPEN) {
+                chatSocket.send(JSON.stringify({
+                    'message': message,
+                    'username': '{{ username }}'
+                }));
                 
-                // Clear input
                 messageInput.value = '';
-                
-                // TODO: Send message to WebSocket
+            } else if (!chatSocket || chatSocket.readyState !== WebSocket.OPEN) {
+                showToast('Not connected to chat room. Trying to reconnect...', 'warning');
+                connectWebSocket();
             }
         });
         
@@ -266,6 +334,58 @@
                 messageForm.dispatchEvent(new Event('submit'));
             }
         });
+
+        // Add toast styles
+        const style = document.createElement('style');
+        style.textContent = `
+            .toast {
+                position: fixed;
+                top: 20px;
+                right: 20px;
+                padding: 10px 20px;
+                border-radius: 4px;
+                color: white;
+                z-index: 1000;
+                animation: slideIn 0.5s, fadeOut 0.5s 4.5s;
+            }
+            
+            .toast-success {
+                background-color: #28a745;
+            }
+            
+            .toast-warning {
+                background-color: #ffc107;
+                color: #000;
+            }
+            
+            .toast-danger {
+                background-color: #dc3545;
+            }
+            
+            @keyframes slideIn {
+                from { transform: translateX(100%); }
+                to { transform: translateX(0); }
+            }
+            
+            @keyframes fadeOut {
+                from { opacity: 1; }
+                to { opacity: 0; }
+            }
+            
+            .message-sender {
+                font-size: 0.75rem;
+                color: var(--text-secondary);
+                margin-bottom: 0.25rem;
+            }
+            
+            .message-text {
+                word-break: break-word;
+            }
+        `;
+        document.head.appendChild(style);
+
+        // Initialize WebSocket connection
+        connectWebSocket();
     });
 </script>
 {% endblock %}
